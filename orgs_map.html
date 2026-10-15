@@ -4,10 +4,33 @@
   <title>Organization Sites Map</title>
   <style>
     html, body, #map { height: 100%; margin: 0; padding: 0; }
+    
+    /* Overlay button styling */
+    .map-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 10;
+      background-color: #800000;
+      color: #ffffff;
+      border: none;
+      padding: 8px 14px;
+      font-family: Arial, sans-serif;
+      font-size: 13px;
+      font-weight: bold;
+      border-radius: 4px;
+      cursor: pointer;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    }
+    .map-btn:hover {
+      background-color: #600000;
+    }
   </style>
 </head>
 <body>
+  <button id="open-all-btn" class="map-btn" style="display:none;">Open All Sites in Google Maps</button>
   <div id="map"></div>
+
   <script>
     async function initMap() {
       // 1. Parse 'addresses' parameter from URL
@@ -20,7 +43,7 @@
       const map = new google.maps.Map(document.getElementById("map"), {
         zoom: 11,
         center: defaultCenter,
-        mapId: "50beb021f65373f29fb55e69", // Replace DEMO_MAP_ID with your actual Google Cloud Map ID
+        mapId: "50beb021f65373f29fb55e69",
         styles: [
           { featureType: "poi", elementType: "labels", stylers: [{ visibility: "off" }] },
           { featureType: "transit", elementType: "labels", stylers: [{ visibility: "off" }] }
@@ -28,6 +51,23 @@
       });
 
       if (addressList.length === 0) return;
+
+      // Construct multi-site Google Maps URL
+      const joinedQuery = addressList.join(' | ');
+      const fullMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(joinedQuery)}`;
+
+      // Setup top-right overlay button
+      const btn = document.getElementById("open-all-btn");
+      btn.style.display = "block";
+      btn.onclick = () => window.open(fullMapsUrl, "_blank");
+
+      // Also open full map when clicking blank space on the map background
+      map.addListener("click", (e) => {
+        // Only trigger if clicking map background (not a marker)
+        if (!e.placeId) {
+          window.open(fullMapsUrl, "_blank");
+        }
+      });
 
       const geocoder = new google.maps.Geocoder();
       const bounds = new google.maps.LatLngBounds();
@@ -40,18 +80,26 @@
             if (status === "OK" && results[0]) {
               const pos = results[0].geometry.location;
 
+              // Maroon custom pin design
               const pin = new PinElement({
-                background: "#10B981", // High-visibility green pin
+                background: "#800000",
                 borderColor: "#FFFFFF",
                 glyphColor: "#FFFFFF",
                 scale: 1.2
               });
 
-              new AdvancedMarkerElement({
+              const marker = new AdvancedMarkerElement({
                 map: map,
                 position: pos,
                 title: address,
                 content: pin.element
+              });
+
+              // Individual pin click opens just that site
+              marker.addListener("click", (evt) => {
+                evt.domEvent.stopPropagation(); // Prevents map background click from firing
+                const singleMapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
+                window.open(singleMapUrl, "_blank");
               });
 
               bounds.extend(pos);
