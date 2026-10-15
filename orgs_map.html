@@ -20,7 +20,7 @@
       const map = new google.maps.Map(document.getElementById("map"), {
         zoom: 11,
         center: defaultCenter,
-        mapId: "YOUR_MAP_ID",
+        mapId: "50beb021f65373f29fb55e69", // Replace DEMO_MAP_ID with your actual Google Cloud Map ID
         styles: [
           { featureType: "poi", elementType: "labels", stylers: [{ visibility: "off" }] },
           { featureType: "transit", elementType: "labels", stylers: [{ visibility: "off" }] }
@@ -33,31 +33,41 @@
       const bounds = new google.maps.LatLngBounds();
       const { AdvancedMarkerElement, PinElement } = await google.maps.importLibrary("marker");
 
-      // 3. Geocode each address and place prominent custom pins
-      for (const address of addressList) {
-        geocoder.geocode({ address: address }, (results, status) => {
-          if (status === "OK" && results[0]) {
-            const pos = results[0].geometry.location;
+      // 3. Geocode each address wrapped in Promises
+      const geocodePromises = addressList.map(address => {
+        return new Promise((resolve) => {
+          geocoder.geocode({ address: address }, (results, status) => {
+            if (status === "OK" && results[0]) {
+              const pos = results[0].geometry.location;
 
-            // Prominent custom pin design
-            const pin = new PinElement({
-              background: "#10B981", // High-visibility marker background
-              borderColor: "#FFFFFF",
-              glyphColor: "#FFFFFF",
-              scale: 1.2
-            });
+              const pin = new PinElement({
+                background: "#10B981", // High-visibility green pin
+                borderColor: "#FFFFFF",
+                glyphColor: "#FFFFFF",
+                scale: 1.2
+              });
 
-            new AdvancedMarkerElement({
-              map: map,
-              position: pos,
-              title: address,
-              content: pin.element
-            });
+              new AdvancedMarkerElement({
+                map: map,
+                position: pos,
+                title: address,
+                content: pin.element
+              });
 
-            bounds.extend(pos);
-            map.fitBounds(bounds);
-          }
+              bounds.extend(pos);
+              resolve(true);
+            } else {
+              console.error("Geocode failed for: " + address + " | Status: " + status);
+              resolve(false);
+            }
+          });
         });
+      });
+
+      // Wait for all geocoding calls to complete before fitting bounds
+      await Promise.all(geocodePromises);
+      if (!bounds.isEmpty()) {
+        map.fitBounds(bounds);
       }
     }
   </script>
