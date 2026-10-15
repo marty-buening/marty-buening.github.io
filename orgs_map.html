@@ -5,7 +5,6 @@
   <style>
     html, body, #map { height: 100%; margin: 0; padding: 0; }
     
-    /* Overlay button styling */
     .map-btn {
       position: absolute;
       top: 10px;
@@ -33,12 +32,10 @@
 
   <script>
     async function initMap() {
-      // 1. Parse 'addresses' parameter from URL
       const urlParams = new URLSearchParams(window.location.search);
       const rawAddresses = urlParams.get('addresses') || '';
       const addressList = rawAddresses.split('|').map(a => a.trim()).filter(a => a.length > 0);
 
-      // 2. Initialize Map with POIs/landmarks hidden
       const defaultCenter = { lat: 39.7684, lng: -86.1581 };
       const map = new google.maps.Map(document.getElementById("map"), {
         zoom: 11,
@@ -52,18 +49,14 @@
 
       if (addressList.length === 0) return;
 
-      // Construct multi-site Google Maps URL
       const joinedQuery = addressList.join(' | ');
       const fullMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(joinedQuery)}`;
 
-      // Setup top-right overlay button
       const btn = document.getElementById("open-all-btn");
       btn.style.display = "block";
       btn.onclick = () => window.open(fullMapsUrl, "_blank");
 
-      // Also open full map when clicking blank space on the map background
       map.addListener("click", (e) => {
-        // Only trigger if clicking map background (not a marker)
         if (!e.placeId) {
           window.open(fullMapsUrl, "_blank");
         }
@@ -73,14 +66,25 @@
       const bounds = new google.maps.LatLngBounds();
       const { AdvancedMarkerElement, PinElement } = await google.maps.importLibrary("marker");
 
-      // 3. Geocode each address wrapped in Promises
-      const geocodePromises = addressList.map(address => {
+      const geocodePromises = addressList.map(entry => {
         return new Promise((resolve) => {
-          geocoder.geocode({ address: address }, (results, status) => {
+          // Parse site name and address if formatted as "Site Name @ Address", otherwise use address
+          let siteName = entry;
+          let searchAddress = entry;
+          if (entry.includes('@')) {
+            const parts = entry.split('@');
+            siteName = parts[0].trim();
+            searchAddress = parts[1].trim();
+          } else {
+            // Shorten plain address for cleaner display label
+            siteName = entry.split(',')[0].trim();
+          }
+
+          geocoder.geocode({ address: searchAddress }, (results, status) => {
             if (status === "OK" && results[0]) {
               const pos = results[0].geometry.location;
 
-              // Maroon custom pin design
+              // Pin design with white text label inside/next to pin
               const pin = new PinElement({
                 background: "#800000",
                 borderColor: "#FFFFFF",
@@ -91,28 +95,26 @@
               const marker = new AdvancedMarkerElement({
                 map: map,
                 position: pos,
-                title: address,
+                title: siteName + " - " + searchAddress, // Native browser hover tooltip
                 content: pin.element
               });
 
-              // Individual pin click opens just that site
               marker.addListener("click", (evt) => {
-                evt.domEvent.stopPropagation(); // Prevents map background click from firing
-                const singleMapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
+                evt.domEvent.stopPropagation();
+                const singleMapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(searchAddress)}`;
                 window.open(singleMapUrl, "_blank");
               });
 
               bounds.extend(pos);
               resolve(true);
             } else {
-              console.error("Geocode failed for: " + address + " | Status: " + status);
+              console.error("Geocode failed for: " + searchAddress + " | Status: " + status);
               resolve(false);
             }
           });
         });
       });
 
-      // Wait for all geocoding calls to complete before fitting bounds
       await Promise.all(geocodePromises);
       if (!bounds.isEmpty()) {
         map.fitBounds(bounds);
