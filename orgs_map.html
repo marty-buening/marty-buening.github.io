@@ -24,6 +24,33 @@
     .map-btn:hover {
       background-color: #600000;
     }
+
+    /* Custom Permanent Label Badge */
+    .pin-label-container {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background-color: #800000;
+      color: #ffffff;
+      padding: 4px 8px;
+      border-radius: 16px;
+      font-family: Arial, sans-serif;
+      font-size: 12px;
+      font-weight: bold;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+      border: 2px solid #ffffff;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+    .pin-label-container:hover {
+      background-color: #600000;
+    }
+    .pin-dot {
+      width: 8px;
+      height: 8px;
+      background-color: #ffffff;
+      border-radius: 50%;
+    }
   </style>
 </head>
 <body>
@@ -64,19 +91,18 @@
 
       const geocoder = new google.maps.Geocoder();
       const bounds = new google.maps.LatLngBounds();
-      const { AdvancedMarkerElement, PinElement } = await google.maps.importLibrary("marker");
+      const { AdvancedMarkerElement } = await google.maps.importLibrary("marker");
 
       const geocodePromises = addressList.map(entry => {
         return new Promise((resolve) => {
-          // Parse site name and address if formatted as "Site Name @ Address", otherwise use address
           let siteName = entry;
           let searchAddress = entry;
+
           if (entry.includes('@')) {
             const parts = entry.split('@');
             siteName = parts[0].trim();
             searchAddress = parts[1].trim();
           } else {
-            // Shorten plain address for cleaner display label
             siteName = entry.split(',')[0].trim();
           }
 
@@ -84,19 +110,16 @@
             if (status === "OK" && results[0]) {
               const pos = results[0].geometry.location;
 
-              // Pin design with white text label inside/next to pin
-              const pin = new PinElement({
-                background: "#800000",
-                borderColor: "#FFFFFF",
-                glyphColor: "#FFFFFF",
-                scale: 1.2
-              });
+              // Construct custom HTML element showing the site name permanently
+              const customBadge = document.createElement("div");
+              customBadge.className = "pin-label-container";
+              customBadge.innerHTML = `<div class="pin-dot"></div><span>${siteName}</span>`;
 
               const marker = new AdvancedMarkerElement({
                 map: map,
                 position: pos,
-                title: siteName + " - " + searchAddress, // Native browser hover tooltip
-                content: pin.element
+                title: siteName + " - " + searchAddress,
+                content: customBadge
               });
 
               marker.addListener("click", (evt) => {
